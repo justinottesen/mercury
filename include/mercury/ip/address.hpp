@@ -29,10 +29,13 @@ public:
 
     [[nodiscard]] static constexpr auto fromString(std::string_view str)
         -> std::expected<AddressV4, std::errc> {
+        if (str == "localhost") { return loopback(); }
+        if (str == "any") { return any(); }
+        if (str == "broadcast") { return broadcast(); }
+
         auto       parts = str | std::views::split('.');
         OctetArray octets{};
 
-        // Parse the octets from the string
         std::size_t count = 0;
         for (auto [sv, octet] : std::views::zip(parts, octets)) {
             ++count;
@@ -44,11 +47,7 @@ public:
             octet = static_cast<std::uint8_t>(value);
         }
 
-        // If we didn't fill the array, check for a special case or return invalid
         if (count != OCTET_COUNT) {
-            if (str == "localhost") { return loopback(); }
-            if (str == "any") { return any(); }
-            if (str == "broadcast") { return broadcast(); }
             return std::unexpected{std::errc::invalid_argument};
         }
 
