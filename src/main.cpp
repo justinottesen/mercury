@@ -1,3 +1,3 @@
-#include <print>
+#include <mercury/mercury.hpp>
 
-auto main() -> int { std::println("Hello, world!"); }
+auto main() -> int { mercury::http::serve(); }

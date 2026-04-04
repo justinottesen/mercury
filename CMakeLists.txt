@@ -16,6 +16,10 @@ option(
     ${PROJECT_IS_TOP_LEVEL}
 )
 
+add_library(mercury.headers INTERFACE)
+target_include_directories(mercury.headers INTERFACE include)
+add_library(mercury::headers ALIAS mercury.headers)
+
 add_subdirectory(src)
 
 if(MERCURY_BUILD_TESTS)
