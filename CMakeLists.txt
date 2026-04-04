@@ -16,6 +16,26 @@ option(
     ${PROJECT_IS_TOP_LEVEL}
 )
 
+add_library(mercury.warnings INTERFACE)
+target_compile_options(mercury.warnings INTERFACE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+    -Wshadow
+    -Wconversion
+    -Wsign-conversion
+    -Wnon-virtual-dtor
+    -Wold-style-cast
+    -Wcast-align
+    -Woverloaded-virtual
+    -Wnull-dereference
+    -Wdouble-promotion
+    -Wformat=2
+    -Wimplicit-fallthrough
+)
+add_library(mercury::warnings ALIAS mercury.warnings)
+
 add_library(mercury.headers INTERFACE)
 target_include_directories(mercury.headers INTERFACE include)
 add_library(mercury::headers ALIAS mercury.headers)
