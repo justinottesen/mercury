@@ -9,3 +9,12 @@ target_link_libraries(address.test PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(address.test)
+
+add_executable(endpoint.test endpoint.test.cpp)
+target_link_libraries(endpoint.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(endpoint.test)
