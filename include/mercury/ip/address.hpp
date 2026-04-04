@@ -7,28 +7,33 @@
 #include <expected>
 #include <ranges>
 #include <string_view>
-#include <variant>
 
 #include <future/concat.hpp>
 
 namespace mercury::ip {
 
-class AddressV4 {
+enum Version : bool { v4, v6 };
+
+template <Version V>
+class Address;
+
+template <>
+class Address<v4> {
     static constexpr std::size_t OCTET_COUNT = 4;
 
+public:
     using OctetArray = std::array<std::uint8_t, OCTET_COUNT>;
 
-public:
-    constexpr AddressV4() noexcept = default;
+    constexpr Address() noexcept = default;
 
-    explicit constexpr AddressV4(const OctetArray& octets) noexcept
+    explicit constexpr Address(const OctetArray& octets) noexcept
         : m_octets(octets) {}
 
-    constexpr AddressV4(std::uint8_t a, std::uint8_t b, std::uint8_t c, std::uint8_t d) noexcept
+    constexpr Address(std::uint8_t a, std::uint8_t b, std::uint8_t c, std::uint8_t d) noexcept
         : m_octets{a, b, c, d} {}
 
     [[nodiscard]] static constexpr auto fromString(std::string_view str)
-        -> std::expected<AddressV4, std::errc> {
+        -> std::expected<Address, std::errc> {
         if (str == "localhost") { return loopback(); }
         if (str == "any") { return any(); }
         if (str == "broadcast") { return broadcast(); }
@@ -47,11 +52,9 @@ public:
             octet = static_cast<std::uint8_t>(value);
         }
 
-        if (count != OCTET_COUNT) {
-            return std::unexpected{std::errc::invalid_argument};
-        }
+        if (count != OCTET_COUNT) { return std::unexpected{std::errc::invalid_argument}; }
 
-        return AddressV4{octets};
+        return Address{octets};
     }
 
     [[nodiscard]] constexpr auto toString() const -> std::string {
@@ -65,33 +68,34 @@ public:
         return result;
     }
 
-    [[nodiscard]] static constexpr auto any() noexcept -> AddressV4 { return {0, 0, 0, 0}; }
+    [[nodiscard]] static constexpr auto any() noexcept -> Address { return {0, 0, 0, 0}; }
 
-    [[nodiscard]] static constexpr auto loopback() noexcept -> AddressV4 { return {127, 0, 0, 1}; }
+    [[nodiscard]] static constexpr auto loopback() noexcept -> Address { return {127, 0, 0, 1}; }
 
-    [[nodiscard]] static constexpr auto broadcast() noexcept -> AddressV4 {
+    [[nodiscard]] static constexpr auto broadcast() noexcept -> Address {
         return {255, 255, 255, 255};
     }
 
-    constexpr auto operator==(const AddressV4&) const noexcept -> bool = default;
+    constexpr auto operator==(const Address&) const noexcept -> bool = default;
 
 private:
     OctetArray m_octets{};
 };
 
-class AddressV6 {
+template <>
+class Address<v6> {
     static constexpr std::size_t OCTET_COUNT = 16;
 
+public:
     using OctetArray = std::array<std::uint8_t, OCTET_COUNT>;
 
-public:
-    constexpr AddressV6() noexcept = default;
+    constexpr Address() noexcept = default;
 
-    explicit constexpr AddressV6(const OctetArray& octets) noexcept
+    explicit constexpr Address(const OctetArray& octets) noexcept
         : m_octets(octets) {}
 
     [[nodiscard]] static constexpr auto fromString(std::string_view str)
-        -> std::expected<AddressV6, std::errc> {
+        -> std::expected<Address, std::errc> {
         if (str.empty()) { return std::unexpected{std::errc::invalid_argument}; }
 
         auto dcPos = str.find("::");
@@ -183,17 +187,15 @@ public:
         return result;
     }
 
-    [[nodiscard]] static constexpr auto any() noexcept -> AddressV6 {
-        return AddressV6{OctetArray{}};
-    }
+    [[nodiscard]] static constexpr auto any() noexcept -> Address { return Address{OctetArray{}}; }
 
-    [[nodiscard]] static constexpr auto loopback() noexcept -> AddressV6 {
-        return AddressV6{
+    [[nodiscard]] static constexpr auto loopback() noexcept -> Address {
+        return Address{
             OctetArray{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
         };
     }
 
-    auto operator==(const AddressV6&) const noexcept -> bool = default;
+    auto operator==(const Address&) const noexcept -> bool = default;
 
 private:
     OctetArray m_octets{};
@@ -231,20 +233,19 @@ private:
     }
 
     [[nodiscard]] static constexpr auto fromGroups(
-        const std::array<std::uint16_t, GROUP_COUNT>& groups) noexcept -> AddressV6 {
+        const std::array<std::uint16_t, GROUP_COUNT>& groups) noexcept -> Address {
         OctetArray octets{};
         for (auto [pair, group] : std::views::zip(octets | std::views::chunk(2), groups)) {
             pair[0] = static_cast<std::uint8_t>(group >> 8U);
             pair[1] = static_cast<std::uint8_t>(group & 0xFFU);
         }
-        return AddressV6{octets};
+        return Address{octets};
     }
 };
 
-using Address = std::variant<AddressV4, AddressV6>;
-
-template <typename T>
-concept AddressType =
-    std::same_as<T, AddressV4> || std::same_as<T, AddressV6> || std::same_as<T, Address>;
+// Deduction guides
+Address(std::uint8_t, std::uint8_t, std::uint8_t, std::uint8_t) -> Address<v4>;
+Address(Address<v4>::OctetArray) -> Address<v4>;
+Address(Address<v6>::OctetArray) -> Address<v6>;
 
 }    // namespace mercury::ip

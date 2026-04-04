@@ -4,34 +4,22 @@
 
 namespace mercury::ip {
 
-namespace detail {
-
-template <AddressType AddrType>
-class GenericEndpoint {
+template <Version V>
+class Endpoint {
 public:
-    constexpr GenericEndpoint(AddrType addr, std::uint16_t port) noexcept
+    constexpr Endpoint(Address<V> addr, std::uint16_t port) noexcept
         : m_addr{addr}
         , m_port{port} {}
 
-    [[nodiscard]] constexpr auto address() const noexcept -> const AddrType& { return m_addr; }
+    [[nodiscard]] constexpr auto address() const noexcept -> const Address<V>& { return m_addr; }
 
     [[nodiscard]] constexpr auto port() const noexcept -> std::uint16_t { return m_port; }
 
-    constexpr auto operator==(const GenericEndpoint&) const noexcept -> bool = default;
+    constexpr auto operator==(const Endpoint&) const noexcept -> bool = default;
 
 private:
-    AddrType      m_addr;
+    Address<V>    m_addr;
     std::uint16_t m_port;
 };
-
-}    // namespace detail
-
-using EndpointV4 = detail::GenericEndpoint<AddressV4>;
-using EndpointV6 = detail::GenericEndpoint<AddressV6>;
-using Endpoint   = std::variant<EndpointV4, EndpointV6>;
-
-template <typename T>
-concept EndpointType =
-    std::same_as<T, EndpointV4> || std::same_as<T, EndpointV6> || std::same_as<T, Endpoint>;
 
 }    // namespace mercury::ip
