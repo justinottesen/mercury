@@ -54,3 +54,30 @@ target_link_libraries(slice.test PRIVATE
 )
 
 gtest_discover_tests(slice.test)
+
+add_executable(method.test method.test.cpp)
+target_link_libraries(method.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(method.test)
+
+add_executable(version.test version.test.cpp)
+target_link_libraries(version.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(version.test)
+
+add_executable(concat.test concat.test.cpp)
+target_link_libraries(concat.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(concat.test)

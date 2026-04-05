@@ -178,6 +178,64 @@ TEST(HttpParseTest, FindHeaderMissing) {
     EXPECT_FALSE(findHeader(*result, "Authorization").has_value());
 }
 
+// --- Remaining methods ---
+
+TEST(HttpParseTest, HeadRequest) {
+    TestContext ctx;
+    auto        result = ctx.parse("HEAD / HTTP/1.1\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->method, Method::Head);
+}
+
+TEST(HttpParseTest, PutRequest) {
+    TestContext ctx;
+    auto        result = ctx.parse("PUT /resource HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->method, Method::Put);
+}
+
+TEST(HttpParseTest, DeleteRequest) {
+    TestContext ctx;
+    auto        result = ctx.parse("DELETE /resource HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->method, Method::Delete);
+}
+
+TEST(HttpParseTest, OptionsRequest) {
+    TestContext ctx;
+    auto        result = ctx.parse("OPTIONS * HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->method, Method::Options);
+}
+
+TEST(HttpParseTest, PatchRequest) {
+    TestContext ctx;
+    auto        result = ctx.parse("PATCH /resource HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->method, Method::Patch);
+}
+
+// --- Header value edge cases ---
+
+TEST(HttpParseTest, HeaderValueContainingColon) {
+    TestContext ctx;
+    auto        result = ctx.parse("GET / HTTP/1.1\r\nHost: example.com:8080\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    auto host = findHeader(*result, "Host");
+    ASSERT_TRUE(host.has_value());
+    EXPECT_EQ(*host, "example.com:8080");
+}
+
+TEST(HttpParseTest, DuplicateHeadersBothPresent) {
+    TestContext ctx;
+    auto result = ctx.parse(
+        "GET / HTTP/1.1\r\nAccept: text/html\r\nAccept: application/json\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->headers.size(), 2U);
+    EXPECT_EQ(result->headers[0].second, "text/html");
+    EXPECT_EQ(result->headers[1].second, "application/json");
+}
+
 // --- IO errors ---
 
 TEST(HttpParseTest, IoErrorPropagated) {

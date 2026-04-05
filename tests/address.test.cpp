@@ -94,6 +94,31 @@ TEST(AddressV4Test, Equality) {
     EXPECT_NE(Address(1, 2, 3, 4), Address(4, 3, 2, 1));
 }
 
+TEST(AddressV4Test, BytesReturnsOctetsInOrder) {
+    Address addr(192, 168, 1, 1);
+    auto    bytes = addr.bytes();
+    ASSERT_EQ(bytes.size(), 4U);
+    EXPECT_EQ(bytes[0], 192U);
+    EXPECT_EQ(bytes[1], 168U);
+    EXPECT_EQ(bytes[2], 1U);
+    EXPECT_EQ(bytes[3], 1U);
+}
+
+TEST(AddressV4Test, FromStringInvalidNegativeOctet) {
+    auto result = Address<v4>::fromString("-1.0.0.1");
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(AddressV4Test, FromStringInvalidNonNumericOctet) {
+    auto result = Address<v4>::fromString("192.168.a.1");
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(AddressV4Test, FromStringInvalidTooManyOctets) {
+    auto result = Address<v4>::fromString("1.2.3.4.5");
+    EXPECT_FALSE(result.has_value());
+}
+
 // --- AddressV6 Tests ---
 
 TEST(AddressV6Test, DefaultConstructor) {
@@ -195,6 +220,35 @@ TEST(AddressV6Test, SpecialAddresses) {
 TEST(AddressV6Test, Equality) {
     EXPECT_EQ(Address<v6>::loopback(), Address<v6>::loopback());
     EXPECT_NE(Address<v6>::any(), Address<v6>::loopback());
+}
+
+TEST(AddressV6Test, BytesReturns16Bytes) {
+    Address<v6> const addr = Address<v6>::loopback();
+    auto              bytes = addr.bytes();
+    ASSERT_EQ(bytes.size(), 16U);
+    // loopback is ::1 — first 15 bytes zero, last byte 1
+    for (std::size_t i = 0; i < 15U; ++i) { EXPECT_EQ(bytes[i], 0U); }
+    EXPECT_EQ(bytes[15], 1U);
+}
+
+TEST(AddressV6Test, FromStringUppercaseHex) {
+    auto lower = Address<v6>::fromString("2001:db8::1");
+    auto upper = Address<v6>::fromString("2001:DB8::1");
+    ASSERT_TRUE(lower.has_value());
+    ASSERT_TRUE(upper.has_value());
+    EXPECT_EQ(*lower, *upper);
+}
+
+TEST(AddressV6Test, FromStringDoubleColonColonInvalid) {
+    // Two :: in one address is invalid
+    auto result = Address<v6>::fromString("1::2::3");
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(AddressV6Test, FromStringTooFewGroupsNoCompression) {
+    // Only 4 groups, no ::, should fail
+    auto result = Address<v6>::fromString("1:2:3:4");
+    EXPECT_FALSE(result.has_value());
 }
 
 }    // namespace mercury::ip::test

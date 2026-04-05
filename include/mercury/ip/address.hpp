@@ -39,12 +39,13 @@ public:
         if (str == "any") { return any(); }
         if (str == "broadcast") { return broadcast(); }
 
-        auto       parts = str | std::views::split('.');
-        OctetArray octets{};
+        auto parts = str | std::views::split('.');
+        if (std::ranges::distance(parts) != OCTET_COUNT) {
+            return std::unexpected{std::errc::invalid_argument};
+        }
 
-        std::size_t count = 0;
+        OctetArray octets{};
         for (auto [sv, octet] : std::views::zip(parts, octets)) {
-            ++count;
             int value{};
             auto [end, ec] = std::from_chars(sv.begin(), sv.end(), value);
             if (ec != std::errc{} || end != sv.end() || !std::in_range<std::uint8_t>(value)) {
@@ -52,8 +53,6 @@ public:
             }
             octet = static_cast<std::uint8_t>(value);
         }
-
-        if (count != OCTET_COUNT) { return std::unexpected{std::errc::invalid_argument}; }
 
         return Address{octets};
     }
