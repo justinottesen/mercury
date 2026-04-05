@@ -25,6 +25,7 @@ class ReadBuffer {
     std::array<std::byte, Capacity> m_buf{};
     std::size_t                     m_begin{0};
     std::size_t                     m_end{0};
+    std::string                     m_line;
 
     auto compact() noexcept -> void {
         if (m_begin == 0) { return; }
@@ -46,17 +47,19 @@ public:
     explicit ReadBuffer(Socket socket) noexcept
         : m_socket{std::move(socket)} {}
 
-    // Read until `delim` is found; returns everything before the delimiter.
-    // The delimiter is consumed but not included in the result.
-    [[nodiscard]] auto readUntil(std::string_view delim) -> std::expected<std::string, std::errc> {
+    // Read until `delim` is found; returns a view of everything before the delimiter.
+    // The delimiter is consumed but not included. The view is valid until the next
+    // call to readUntil.
+    [[nodiscard]] auto readUntil(std::string_view delim)
+        -> std::expected<std::string_view, std::errc> {
         while (true) {
             // NOLINTNEXTLINE(*-reinterpret-cast)
             auto const* chars = reinterpret_cast<const char*>(m_buf.data() + m_begin);
             auto const  view  = std::string_view{chars, m_end - m_begin};
             if (auto const pos = view.find(delim); pos != std::string_view::npos) {
-                std::string result{view.substr(0, pos)};
+                m_line.assign(view.substr(0, pos));
                 m_begin += pos + delim.size();
-                return result;
+                return std::string_view{m_line};
             }
             if (auto r = fill(); !r) { return std::unexpected{r.error()}; }
         }
