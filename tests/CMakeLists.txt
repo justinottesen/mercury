@@ -45,3 +45,12 @@ target_link_libraries(http_parse.test PRIVATE
 )
 
 gtest_discover_tests(http_parse.test)
+
+add_executable(slice.test slice.test.cpp)
+target_link_libraries(slice.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(slice.test)

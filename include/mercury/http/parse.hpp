@@ -4,12 +4,12 @@
 #include <memory_resource>
 #include <string_view>
 
+#include <mercury/http/detail/intern.hpp>
 #include <mercury/http/error.hpp>
 #include <mercury/http/method.hpp>
 #include <mercury/http/request.hpp>
 #include <mercury/http/version.hpp>
 #include <mercury/net/read_buffer.hpp>
-#include <mercury/net/slice.hpp>
 
 namespace mercury::http {
 
@@ -18,14 +18,7 @@ template <net::Readable Socket, std::size_t Cap = 8192>
                                 std::pmr::memory_resource&    arena)
     -> std::expected<Request, ParseError> {
 
-    // Copies `sv` into the arena — the one intentional copy per string.
-    // When io_uring fills arena chunks directly, this goes away.
-    auto intern = [&arena](std::string_view sv) -> net::Slice {
-        if (sv.empty()) { return {}; }
-        auto* ptr = static_cast<char*>(arena.allocate(sv.size(), alignof(char)));
-        std::ranges::copy(sv, ptr);
-        return net::Slice{ptr, sv.size()};
-    };
+    auto intern = [&arena](std::string_view sv) -> net::Slice { return detail::intern(sv, arena); };
 
     // --- Request line: METHOD SP target SP HTTP/version CRLF ---
     auto const reqLine = buf.readUntil("\r\n");

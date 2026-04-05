@@ -152,6 +152,32 @@ TEST(HttpParseTest, EmptyRequestLineReturnsError) {
     EXPECT_EQ(result.error(), ParseError::InvalidRequestLine);
 }
 
+// --- findHeader ---
+
+TEST(HttpParseTest, FindHeaderExactCase) {
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    auto host = findHeader(*result, "Host");
+    ASSERT_TRUE(host.has_value());
+    EXPECT_EQ(*host, "example.com");
+}
+
+TEST(HttpParseTest, FindHeaderCaseInsensitive) {
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nContent-Type: text/plain\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(findHeader(*result, "content-type").has_value());
+    EXPECT_TRUE(findHeader(*result, "CONTENT-TYPE").has_value());
+}
+
+TEST(HttpParseTest, FindHeaderMissing) {
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(findHeader(*result, "Authorization").has_value());
+}
+
 // --- IO errors ---
 
 TEST(HttpParseTest, IoErrorPropagated) {
