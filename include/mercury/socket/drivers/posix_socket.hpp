@@ -58,6 +58,7 @@ struct PosixDriver {
     };
 
     using Handle = Native::Handle;
+    static constexpr Handle invalid_handle = -1;
 
     [[nodiscard]] static auto make(Protocol p, ip::Version v) noexcept
         -> std::expected<Native::Handle, std::errc> {
