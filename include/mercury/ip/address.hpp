@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <ranges>
+#include <span>
 #include <string_view>
 
 #include <future/concat.hpp>
@@ -66,6 +67,10 @@ public:
             result.append(buf.begin(), end);
         }
         return result;
+    }
+
+    [[nodiscard]] constexpr auto bytes() const noexcept -> std::span<const std::uint8_t, OCTET_COUNT> {
+        return m_octets;
     }
 
     [[nodiscard]] static constexpr auto any() noexcept -> Address { return {0, 0, 0, 0}; }
@@ -185,6 +190,10 @@ public:
         }
 
         return result;
+    }
+
+    [[nodiscard]] constexpr auto bytes() const noexcept -> std::span<const std::uint8_t, OCTET_COUNT> {
+        return m_octets;
     }
 
     [[nodiscard]] static constexpr auto any() noexcept -> Address { return Address{OctetArray{}}; }

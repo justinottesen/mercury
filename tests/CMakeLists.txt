@@ -18,3 +18,12 @@ target_link_libraries(endpoint.test PRIVATE
 )
 
 gtest_discover_tests(endpoint.test)
+
+add_executable(socket.test socket.test.cpp)
+target_link_libraries(socket.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(socket.test)
