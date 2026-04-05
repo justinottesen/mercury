@@ -25,29 +25,39 @@ private:
     mutable std::size_t m_pos{0};
 };
 
-auto makeBuffer(std::string data) { return net::ReadBuffer{FakeSocket{std::move(data)}}; }
+// Holds the arena alongside the parse result so slices remain valid
+// for the duration of each test.
+struct TestContext {
+    std::array<std::byte, 4096>         arenaBuf{};
+    std::pmr::monotonic_buffer_resource arena{arenaBuf.data(), arenaBuf.size()};
+
+    [[nodiscard]] auto parse(std::string data) {
+        auto buf = net::ReadBuffer{FakeSocket{std::move(data)}};
+        return parseRequest(buf, arena);
+    }
+};
 
 }    // namespace
 
 // --- Method parsing ---
 
 TEST(HttpParseTest, GetRequest) {
-    auto buf    = makeBuffer("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->method, Method::Get);
 }
 
 TEST(HttpParseTest, PostRequest) {
-    auto buf    = makeBuffer("POST /submit HTTP/1.1\r\nHost: example.com\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("POST /submit HTTP/1.1\r\nHost: example.com\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->method, Method::Post);
 }
 
 TEST(HttpParseTest, UnknownMethodReturnsError) {
-    auto buf    = makeBuffer("FOO / HTTP/1.1\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("FOO / HTTP/1.1\r\n\r\n");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::InvalidMethod);
 }
@@ -55,15 +65,15 @@ TEST(HttpParseTest, UnknownMethodReturnsError) {
 // --- Target parsing ---
 
 TEST(HttpParseTest, RootTarget) {
-    auto buf    = makeBuffer("GET / HTTP/1.1\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->target, "/");
 }
 
 TEST(HttpParseTest, PathWithQuery) {
-    auto buf    = makeBuffer("GET /search?q=foo HTTP/1.1\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET /search?q=foo HTTP/1.1\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->target, "/search?q=foo");
 }
@@ -71,22 +81,22 @@ TEST(HttpParseTest, PathWithQuery) {
 // --- Version parsing ---
 
 TEST(HttpParseTest, Http11) {
-    auto buf    = makeBuffer("GET / HTTP/1.1\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->version, Version::v1_1);
 }
 
 TEST(HttpParseTest, Http10) {
-    auto buf    = makeBuffer("GET / HTTP/1.0\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.0\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->version, Version::v1);
 }
 
 TEST(HttpParseTest, UnknownVersionReturnsError) {
-    auto buf    = makeBuffer("GET / HTTP/2.0\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/2.0\r\n\r\n");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::InvalidVersion);
 }
@@ -94,8 +104,8 @@ TEST(HttpParseTest, UnknownVersionReturnsError) {
 // --- Header parsing ---
 
 TEST(HttpParseTest, SingleHeader) {
-    auto buf    = makeBuffer("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->headers.size(), 1U);
     EXPECT_EQ(result->headers[0].first, "Host");
@@ -103,9 +113,8 @@ TEST(HttpParseTest, SingleHeader) {
 }
 
 TEST(HttpParseTest, MultipleHeaders) {
-    auto buf =
-        makeBuffer("GET / HTTP/1.1\r\nHost: example.com\r\nContent-Type: text/plain\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nHost: example.com\r\nContent-Type: text/plain\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->headers.size(), 2U);
     EXPECT_EQ(result->headers[0].first, "Host");
@@ -114,15 +123,15 @@ TEST(HttpParseTest, MultipleHeaders) {
 }
 
 TEST(HttpParseTest, NoHeaders) {
-    auto buf    = makeBuffer("GET / HTTP/1.1\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\n\r\n");
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result->headers.empty());
 }
 
 TEST(HttpParseTest, MalformedHeaderReturnsError) {
-    auto buf    = makeBuffer("GET / HTTP/1.1\r\nBadHeader\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET / HTTP/1.1\r\nBadHeader\r\n\r\n");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::InvalidHeader);
 }
@@ -130,15 +139,15 @@ TEST(HttpParseTest, MalformedHeaderReturnsError) {
 // --- Request line errors ---
 
 TEST(HttpParseTest, MissingVersionReturnsError) {
-    auto buf    = makeBuffer("GET /\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("GET /\r\n\r\n");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::InvalidRequestLine);
 }
 
 TEST(HttpParseTest, EmptyRequestLineReturnsError) {
-    auto buf    = makeBuffer("\r\n\r\n");
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("\r\n\r\n");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::InvalidRequestLine);
 }
@@ -146,8 +155,8 @@ TEST(HttpParseTest, EmptyRequestLineReturnsError) {
 // --- IO errors ---
 
 TEST(HttpParseTest, IoErrorPropagated) {
-    auto buf    = makeBuffer("");    // socket immediately done
-    auto result = parseRequest(buf);
+    TestContext ctx;
+    auto result = ctx.parse("");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::IoError);
 }
