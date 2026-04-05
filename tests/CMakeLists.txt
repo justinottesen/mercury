@@ -27,3 +27,12 @@ target_link_libraries(socket.test PRIVATE
 )
 
 gtest_discover_tests(socket.test)
+
+add_executable(read_buffer.test read_buffer.test.cpp)
+target_link_libraries(read_buffer.test PRIVATE
+    mercury::headers
+    mercury::warnings
+    GTest::gtest_main
+)
+
+gtest_discover_tests(read_buffer.test)
